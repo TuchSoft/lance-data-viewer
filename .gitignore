@@ -86,3 +86,5 @@ config.local.*
 
 # Web dependencies
 web/vanilla/vendor/
+#Ignore the AI complex_plans directory
+.complex_plans
