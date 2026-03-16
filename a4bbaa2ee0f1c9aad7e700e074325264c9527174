@@ -1,0 +1,23 @@
+random_file.txt
+  535c6a4780387c52 3-4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.12",
+  "base_commit_sha": "a4bbaa2ee0f1c9aad7e700e074325264c9527174",
+  "prompts": {
+    "535c6a4780387c52": {
+      "agent_id": {
+        "tool": "mistral-vibe",
+        "id": "a0d41722-3d71-40b4-bc58-7171c5ffe153",
+        "model": "mistral-vibe-cli-latest"
+      },
+      "human_author": "Mattia Bonzi <mattia@mattiabonzi.it>",
+      "messages": [],
+      "total_additions": 2,
+      "total_deletions": 2,
+      "accepted_lines": 2,
+      "overriden_lines": 0
+    }
+  }
+}
