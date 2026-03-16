@@ -1,0 +1,23 @@
+g.h
+  2d56a82c23294bfb 20-42
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.12",
+  "base_commit_sha": "c15ee4967d86deb598a34eb2f0dd79e257b3e821",
+  "prompts": {
+    "2d56a82c23294bfb": {
+      "agent_id": {
+        "tool": "mistral-vibe",
+        "id": "session_12345",
+        "model": "mistral-large-latest"
+      },
+      "human_author": "Mattia Bonzi <mattia@mattiabonzi.it>",
+      "messages": [],
+      "total_additions": 23,
+      "total_deletions": 0,
+      "accepted_lines": 23,
+      "overriden_lines": 0
+    }
+  }
+}
