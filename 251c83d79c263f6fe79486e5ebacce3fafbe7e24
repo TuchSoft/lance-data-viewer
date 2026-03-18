@@ -1,0 +1,84 @@
+random_file_fb270077682a1b32.txt
+  052c079c38f0ea8c 2-3
+7e9f1a2b3c4d5e6f7a8b9c0d1e2f3a4.txt
+  7bd7df543e0b8d5f 1
+random_file.txt
+  fd20894395e96871 1
+6f440007a14ee8aa46bb7f832dba8b86.txt
+  7bd7df543e0b8d5f 1
+0430c11b6a5c586cf001a4a670b51a45.txt
+  7bd7df543e0b8d5f 1
+9bc5d34e14748c66.txt
+  fd20894395e96871 1
+temp_456789.csv
+  488e012938e80e10 1-4
+xqg9p_zy72.txt
+  488e012938e80e10 1
+a1b2_c3d4.txt
+  488e012938e80e10 1
+data_20231005.json
+  488e012938e80e10 1-11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.15",
+  "base_commit_sha": "251c83d79c263f6fe79486e5ebacce3fafbe7e24",
+  "prompts": {
+    "052c079c38f0ea8c": {
+      "agent_id": {
+        "tool": "mistral-vibe",
+        "id": "e9bc510c-23c6-480d-b0c0-ede273fa0404",
+        "model": "mistral-vibe-cli-latest"
+      },
+      "human_author": "Mattia Bonzi <mattia@mattiabonzi.it>",
+      "messages": [],
+      "total_additions": 2,
+      "total_deletions": 0,
+      "accepted_lines": 2,
+      "overriden_lines": 0,
+      "messages_url": "https://usegitai.com/cas/5247e2ccc428db7871699bd321473a1e7ac71b1938271077d5a5379ef30ca4d1"
+    },
+    "488e012938e80e10": {
+      "agent_id": {
+        "tool": "mistral-vibe",
+        "id": "19c89d72-6c86-49f0-9c19-29c4adf95841",
+        "model": "mistral-vibe-cli-latest"
+      },
+      "human_author": "Mattia Bonzi <mattia@mattiabonzi.it>",
+      "messages": [],
+      "total_additions": 17,
+      "total_deletions": 0,
+      "accepted_lines": 17,
+      "overriden_lines": 0,
+      "messages_url": "https://usegitai.com/cas/11db1264f63f2c4be027235f6e02383c22001ee7b8ba5f52301a1e44e44f93f6"
+    },
+    "7bd7df543e0b8d5f": {
+      "agent_id": {
+        "tool": "mistral-vibe",
+        "id": "e41293ec-ebea-41fd-bda9-841e35f4a621",
+        "model": "mistral-vibe-cli-latest"
+      },
+      "human_author": "Mattia Bonzi <mattia@mattiabonzi.it>",
+      "messages": [],
+      "total_additions": 3,
+      "total_deletions": 0,
+      "accepted_lines": 3,
+      "overriden_lines": 0,
+      "messages_url": "https://usegitai.com/cas/0fbdd938c0399c4da951badabb1ae076792a97d7b649e9ac7b6eb46f58aba2a7"
+    },
+    "fd20894395e96871": {
+      "agent_id": {
+        "tool": "mistral-vibe",
+        "id": "86d12723-0176-4e80-ae59-915f1901e73d",
+        "model": "mistral-vibe-cli-latest"
+      },
+      "human_author": "Mattia Bonzi <mattia@mattiabonzi.it>",
+      "messages": [],
+      "total_additions": 2,
+      "total_deletions": 5,
+      "accepted_lines": 2,
+      "overriden_lines": 0,
+      "messages_url": "https://usegitai.com/cas/9f3ea86bf85df1cdaab85f6b45c4e32e2ef658f19932ef06b5bfb1759175b157"
+    }
+  }
+}
