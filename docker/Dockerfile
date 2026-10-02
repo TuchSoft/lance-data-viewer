@@ -1,7 +1,7 @@
 FROM python:3.11-slim-bookworm AS builder
 
 # Build arguments for Lance version
-ARG LANCEDB_VERSION=0.3.4
+ARG LANCEDB_VERSION=0.36.0
 
 WORKDIR /build
 
@@ -9,13 +9,12 @@ COPY backend/requirements.txt backend/constraints-${LANCEDB_VERSION}.txt ./
 RUN pip install --no-cache-dir --user -c constraints-${LANCEDB_VERSION}.txt \
     -r requirements.txt
 
-# Download static dependencies for offline use
+# Download static dependencies for offline use (jQuery + DataTables)
 FROM alpine:latest AS downloader
 RUN apk add --no-cache curl
 WORKDIR /download
 RUN curl -L -o datatables.min.css "https://cdn.datatables.net/v/dt/jq-3.7.0/dt-2.3.7/cr-2.1.2/date-1.6.3/sb-1.8.4/datatables.min.css" && \
     curl -L -o datatables.min.js "https://cdn.datatables.net/v/dt/jq-3.7.0/dt-2.3.7/cr-2.1.2/date-1.6.3/sb-1.8.4/datatables.min.js"
-
 
 
 FROM python:3.11-slim-bookworm
@@ -30,7 +29,8 @@ COPY --from=builder /root/.local /home/appuser/.local
 
 WORKDIR /app
 
-COPY backend/*.py .
+COPY backend/*.py ./
+COPY VERSION .
 COPY web/vanilla/ /web/
 COPY --from=downloader /download/* /web/vendor/
 
@@ -48,12 +48,13 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -fsS http://localhost:8080/healthz || exit 1
 
 # Build arguments for labels (redeclare after FROM)
-ARG LANCEDB_VERSION=0.3.4
+ARG LANCEDB_VERSION=0.36.0
+ARG APP_VERSION=0.4.0
 
-LABEL org.opencontainers.image.title="Lance Data Viewer"
-LABEL org.opencontainers.image.description="Read-only web viewer for Lance datasets"
-LABEL org.opencontainers.image.source="https://github.com/gordonmurray/lance-data-viewer"
-LABEL org.opencontainers.image.version="0.1.0"
+LABEL org.opencontainers.image.title="Lance Data Viewer (TuchSoft fork)"
+LABEL org.opencontainers.image.description="Read-only web viewer for Lance datasets, with server-side filtering, search and inline media preview"
+LABEL org.opencontainers.image.source="https://github.com/TuchSoft/lance-data-viewer"
+LABEL org.opencontainers.image.version="${APP_VERSION}"
 LABEL org.opencontainers.image.licenses="MIT"
 LABEL com.github.lancedb.version="${LANCEDB_VERSION}"
 

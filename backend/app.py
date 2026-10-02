@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from contextlib import asynccontextmanager
 import json
 import logging
 import os
@@ -9,6 +10,7 @@ from typing import Any, Dict, List, Optional, Union
 import duckdb
 import lancedb
 import pyarrow as pa
+from packaging.version import parse as parse_version
 from fastapi import Body, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -20,19 +22,33 @@ from serialize_value import serialize_value
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+def _read_app_version() -> str:
+    """Read the app version from the VERSION file, if present."""
+    here = Path(__file__).resolve().parent
+    for candidate in (here / "VERSION", here.parent / "VERSION"):
+        if candidate.exists():
+            return candidate.read_text().strip()
+    return "0.0.0-dev"
+
+
+APP_VERSION = _read_app_version()
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Log version information on startup."""
+    logger.info(f"Lance Data Viewer v{APP_VERSION}")
+    logger.info(f"LanceDB: {lancedb.__version__}, PyArrow: {pa.__version__}")
+    logger.info(f"Data path: {DATA_PATH}")
+    yield
+
+
 app = FastAPI(
     title="Lance Data Viewer",
     description="Read-only web viewer for Lance datasets",
-    version="0.1.0",
+    version=APP_VERSION,
+    lifespan=lifespan,
 )
-
-
-@app.on_event("startup")
-async def startup_event():
-    """Log version information on startup"""
-    logger.info(f"Lance Data Viewer v0.1.0")
-    logger.info(f"LanceDB: {lancedb.__version__}, PyArrow: {pa.__version__}")
-    logger.info(f"Data path: {DATA_PATH}")
 
 
 app.add_middleware(
@@ -205,16 +221,16 @@ async def health_check():
         # Determine compatibility features based on Lance version
         compat = {
             "vector_preview": True,
-            "schema_evolution": lancedb_version >= "0.5",
-            "lance_v2_format": lancedb_version >= "0.16",
+            "schema_evolution": parse_version(lancedb_version) >= parse_version("0.5"),
+            "lance_v2_format": parse_version(lancedb_version) >= parse_version("0.16"),
         }
 
         # Generate build tag
-        build_tag = f"app-0.1.0_lancedb-{lancedb_version}"
+        build_tag = f"app-{APP_VERSION}_lancedb-{lancedb_version}"
 
         return {
             "ok": True,
-            "app_version": "0.1.0",
+            "app_version": APP_VERSION,
             "lancedb_version": lancedb_version,
             "pyarrow_version": pyarrow_version,
             "build_tag": build_tag,
@@ -229,7 +245,12 @@ async def health_check():
 async def list_datasets():
     try:
         db = get_lance_connection()
-        table_names = db.table_names()
+        if hasattr(db, "list_tables"):
+            table_names = db.list_tables().tables
+        else:
+            # list_tables() replaces the deprecated table_names(), which
+            # older lancedb versions still require.
+            table_names = db.table_names()
         valid_tables = [name for name in table_names if validate_dataset_name(name)]
         return {"datasets": valid_tables}
     except Exception as e:
@@ -393,17 +414,52 @@ async def get_dataset_rows(
                 )
 
             else:
-                # For other datasets, use native LanceDB scanner for high-performance pagination
-                logger.info(f"Using LanceDB scanner for {dataset_name} pagination")
+                # Native pagination: read only the requested page from disk.
+                logger.info(f"Using native LanceDB pagination for {dataset_name}")
 
-                total_count = table.count_rows()
+                try:
+                    total_count = table.count_rows()
+                    end = min(offset + limit, total_count)
 
-                # Fetch only the requested page of data
-                scanner = table.scanner(columns=column_list, limit=limit, offset=offset)
-                result_table = scanner.to_table()
-                logger.info(
-                    f"Successfully read {result_table.num_rows} rows from {dataset_name}"
-                )
+                    if offset >= total_count:
+                        result_table = pa.table(
+                            {
+                                field.name: pa.array([], type=field.type)
+                                for field in table.schema
+                            }
+                        )
+                    else:
+                        offsets = list(range(offset, end))
+                        builder = table.take_offsets(offsets)
+                        if column_list:
+                            schema_columns = [field.name for field in table.schema]
+                            available = [
+                                col for col in column_list if col in schema_columns
+                            ]
+                            if available:
+                                builder = builder.select(available)
+                        result_table = builder.to_arrow()
+
+                    logger.info(
+                        f"Read {result_table.num_rows} rows from {dataset_name} "
+                        f"(offset={offset}, limit={limit}, total={total_count})"
+                    )
+                except (AttributeError, TypeError):
+                    # Older LanceDB without take_offsets: materialise, then slice.
+                    logger.info(
+                        f"Native pagination unavailable, using Arrow slice for {dataset_name}"
+                    )
+                    arrow_table = table.to_arrow()
+                    total_count = arrow_table.num_rows
+
+                    if column_list:
+                        available = [
+                            col for col in column_list if col in arrow_table.column_names
+                        ]
+                        if available:
+                            arrow_table = arrow_table.select(available)
+
+                    result_table = arrow_table.slice(offset, limit)
 
         except Exception as general_error:
             logger.error(f"Reading failed for {dataset_name}: {general_error}")
@@ -767,7 +823,7 @@ if __name__ == "__main__":
     import uvicorn
 
     # Log version information on startup
-    logger.info(f"Lance Data Viewer v0.1.0")
+    logger.info(f"Lance Data Viewer v{APP_VERSION}")
     logger.info(f"LanceDB: {lancedb.__version__}, PyArrow: {pa.__version__}")
     logger.info(f"Data path: {DATA_PATH}")
 

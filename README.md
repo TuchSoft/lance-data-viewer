@@ -1,190 +1,165 @@
-# Lance Data Viewer - A read-only web UI for Lance datasets
+# Lance Data Viewer (TuchSoft fork)
 
-Browse Lance tables from your local machine in a simple web UI. No database to
-set up. Mount a folder and go.
+A read-only web UI for [Lance](https://lancedb.github.io/lance/) datasets.
+Mount a folder, open a browser, browse your tables. No database to set up.
 
-**✨ Multi-Version Support**: Built for different Lance versions to ensure
-compatibility with your data format.
+This is a fork of [lance-format/lance-data-viewer](https://github.com/lance-format/lance-data-viewer)
+that adds **server-side filtering and search** on top of the table view, plus an
+**inline preview for media stored in blob columns**. It tracks upstream and now
+supports the modern LanceDB line (0.24.3 through 0.36.0, PyArrow 21 through 25).
 
 ![Lance Data Viewer Screenshot](lance_data_viewer_screenshot.png)
 
-### Quick start (Docker)
+## What this fork adds
 
-1. **Pull the recommended version**
+- **Server-side search, filtering, ordering and pagination** via
+  [DataTables](https://datatables.net/). Filtering runs in DuckDB over the Lance
+  dataset, so it stays fast on tables that do not fit in a page. Includes the
+  DataTables SearchBuilder for multi-rule queries, and shareable URLs that carry
+  the current table reference.
+- **Inline media preview.** Binary columns are inspected by file signature and,
+  when they hold an image, audio or video, the table renders it inline. Payloads
+  up to 64 KiB are sent base64 and drawn straight in the cell; larger ones are
+  described by type and size instead of being shipped to the browser.
+
+Everything else comes from upstream: vector sparklines with CLIP detection,
+nested schema handling, text wrapping, multi-version support.
+
+## Quick start (Docker)
+
+1. **Pull the recommended image**
 
 ```bash
-# Modern stable version (recommended for new projects)
-docker pull ghcr.io/gordonmurray/lance-data-viewer:lancedb-0.24.3
+docker pull ghcr.io/tuchsoft/lance-data-viewer:lancedb-0.36.0
 ```
 
 2. **Make your data readable (required)**
 
 ```bash
-# Make your Lance data directory and all contents readable by the container
 chmod -R o+rx /path/to/your/lance
 ```
 
-3. **Run (mount your data)**
+3. **Run it**
 
 ```bash
 docker run --rm -p 8080:8080 \
     -v /path/to/your/lance:/data:ro \
-    ghcr.io/gordonmurray/lance-data-viewer:lancedb-0.24.3
+    ghcr.io/tuchsoft/lance-data-viewer:lancedb-0.36.0
 ```
 
-4. **Open the UI**
+4. **Open** <http://localhost:8080>
 
-```
-http://localhost:8080
-```
+The UI shows the Lance version it is running against in the top-right corner.
 
-The UI will display the Lance version in the top-right corner for easy
-identification.
+## Available images
 
-### What counts as "Lance data" here?
+Pick the container that matches the Lance data format you have on disk:
 
-A folder containing Lance tables (as created by Lance/LanceDB). The app lists
-tables under `/data`.
+| Container tag     | LanceDB | PyArrow  | Use case                                  |
+| ----------------- | ------- | -------- | ----------------------------------------- |
+| `lancedb-0.36.0`  | 0.36.0  | 25.x     | **Recommended** for current datasets      |
+| `lancedb-0.33.0`  | 0.33.0  | 16 - 25  | Datasets written by the 0.33 line         |
+| `lancedb-0.29.2`  | 0.29.2  | 16 - 21  | Datasets written by the 0.29 line         |
+| `lancedb-0.24.3`  | 0.24.3  | 16 - 21  | Datasets from the 2025 line               |
 
-## Available Lance Versions
+`latest` and `stable` point at the 0.36.0 build.
 
-Choose the container that matches your Lance data format:
+If you get a compatibility error, step down to an older tag. The build also
+accepts the legacy targets `0.16.0`, `0.5`, `0.3.4` and `0.3.1`
+(`--build-arg LANCEDB_VERSION=...`); those dependency sets are built locally
+rather than published, because their packages are no longer on PyPI.
 
-| Container Tag    | Lance Version | PyArrow | Use Case                                |
-| ---------------- | ------------- | ------- | --------------------------------------- |
-| `lancedb-0.24.3` | 0.24.3        | 21.0.0  | **Recommended** - Modern stable version |
-| `lancedb-0.16.0` | 0.16.0        | 16.1.0  | Anchor stable for older datasets        |
-| `lancedb-0.5`    | 0.5.0         | 14.0.1  | Legacy support                          |
-| `lancedb-0.3.4`  | 0.3.4         | 14.0.1  | Legacy support                          |
-| `lancedb-0.3.1`  | 0.3.1         | 14.0.1  | Legacy support                          |
+## Features
 
-### Viewing older Lance data
+- **Read-only browsing** with a left sidebar for datasets, columns and schema
+- **Server-side search, filtering, ordering and pagination** (DataTables +
+  DuckDB)
+- **Inline media preview** for images, audio and video held in blob columns
+- **Vector visualization** with CLIP detection and sparkline charts
+- **Nested schema support**: structs, lists, fixed-size lists and vectors inside
+  objects
+- **Multi-version support**, one image per Lance line
+- **Graceful handling** of corrupted or partially readable datasets
 
-If you have datasets created with older Lance versions:
+## Supported data types
+
+**Fully supported**
+
+- Scalars: string, int, float, timestamp, boolean, null
+- Vectors: `fixed_size_list<float>[N]` and modern `Vector(dim)` fields
+- Nested structures: structs, maps, lists, and vectors inside them
+- Binary columns: decoded to text when valid UTF-8, previewed inline when they
+  match a known image, audio or video signature, otherwise base64
+
+**Limited**
+
+- Legacy `pa.list_(pa.float32(), dim)` vectors: schema is shown, data may warn
+- Vectors above 2048 dimensions: preview only
+
+**Not supported**
+
+- Binary (uint8) vector columns and multi-vector columns
+- Write operations: this is a read-only viewer
+
+## Configuration
+
+| Variable    | Default | Notes                                                    |
+| ----------- | ------- | -------------------------------------------------------- |
+| `DATA_PATH` | `/data` | Directory holding the Lance tables                       |
+| `PORT`      | `8080`  | Not used by the plain `docker run`; set your own mapping |
+
+Change the published port with `-p 9000:8080`. Keep the `:ro` flag on the mount.
+
+## Build from source
 
 ```bash
-# For datasets created with Lance 0.16.x
-docker run --rm -p 8080:8080 \
-    -v /path/to/your/old/lance/data:/data:ro \
-    ghcr.io/gordonmurray/lance-data-viewer:lancedb-0.16.0
-
-# For very old datasets (Lance 0.3.x era)
-docker run --rm -p 8080:8080 \
-    -v /path/to/your/legacy/data:/data:ro \
-    ghcr.io/gordonmurray/lance-data-viewer:lancedb-0.3.4
-```
-
-**Tip**: If you're unsure which version to use, start with `lancedb-0.24.3` and
-if you get compatibility errors, try progressively older versions.
-
-### Features
-
-- **Read-only browsing** with organized left sidebar (Datasets → Columns →
-  Schema)
-- **Advanced vector visualization** with CLIP embedding detection and sparkline
-  charts
-- **Schema analysis** with vector column highlighting and type detection
-- **Server-side search, ordering, and pagination** powered by
-  [DataTables](https://datatables.net/)
-- **Advanced query builder** for complex filtering and search builder rules
-- **Robust error handling** - gracefully handles corrupted datasets
-- **Responsive layout** optimized for data viewing
-
-### Configuration (optional)
-
-- **Port:** change host port with `-p 9000:8080`.
-- **Read-only mount:** keep `:ro` to avoid accidental writes in future versions.
-
-### Images & registries
-
-- **GitHub Container Registry** (`ghcr.io/gordonmurray/lance-data-viewer:TAG`).
-
-### Build and test locally
-
-```bash
-# Build with specific Lance version (default: 0.3.4)
 docker build -f docker/Dockerfile \
-    --build-arg LANCEDB_VERSION=0.24.3 \
+    --build-arg LANCEDB_VERSION=0.36.0 \
     -t lance-data-viewer:dev .
 
-# Build multiple versions for testing
-docker build -f docker/Dockerfile --build-arg LANCEDB_VERSION=0.24.3 -t lance-data-viewer:lancedb-0.24.3 .
-docker build -f docker/Dockerfile --build-arg LANCEDB_VERSION=0.16.0 -t lance-data-viewer:lancedb-0.16.0 .
-docker build -f docker/Dockerfile --build-arg LANCEDB_VERSION=0.3.4 -t lance-data-viewer:lancedb-0.3.4 .
+docker run --rm -p 8080:8080 -v "$(pwd)/data:/data:ro" lance-data-viewer:dev
+```
 
-# Make your Lance data readable (one-time setup)
-chmod -R o+rx data
+Run the API directly without Docker:
 
-# Run with your data (replace 'data' with your lance folder path)
-docker run --rm -p 8080:8080 -v $(pwd)/data:/data:ro lance-data-viewer:dev
+```bash
+cd backend
+pip install -c constraints-0.36.0.txt -r requirements.txt
+DATA_PATH=/path/to/lance python -m uvicorn app:app --host 0.0.0.0 --port 8080
+```
 
-# Open the web interface
-open http://localhost:8080
+Useful endpoints:
 
-# Test the API endpoints
+```bash
 curl http://localhost:8080/healthz
 curl http://localhost:8080/datasets
-curl "http://localhost:8080/datasets/your-dataset/rows?limit=5"
+curl "http://localhost:8080/datasets/my-table/rows?limit=5"
 ```
 
-### Development workflow
+## Notes on compatibility
+
+The fork was brought up to the current upstream code and dependency set, so it
+runs on LanceDB 0.36 with FastAPI 0.141 and NumPy 2. The pagination path uses
+`LanceTable.take_offsets()` where available and falls back to an Arrow slice on
+older Lance builds, so a single image still serves the whole range of supported
+Lance lines.
+
+## Demo data
+
+`scripts/make-demo-dataset.py` builds a small Lance table with scalars, an
+8-dimensional vector column and four blob columns (PNG, JPEG, WAV, MP4) so the
+media preview can be tried out locally:
 
 ```bash
-# Stop any running containers
-docker ps -q | xargs docker stop
-
-# Rebuild after code changes (with specific Lance version)
-docker build -f docker/Dockerfile \
-    --build-arg LANCEDB_VERSION=0.24.3 \
-    -t lance-data-viewer:dev .
-
-# Run in background
-docker run --rm -d -p 8080:8080 -v $(pwd)/data:/data:ro lance-data-viewer:dev
-
-# View logs
-docker logs $(docker ps -q --filter ancestor=lance-data-viewer:dev)
-
-# Check version info
-curl http://localhost:8080/healthz | jq '.lancedb_version'
+python scripts/make-demo-dataset.py ./demo-data
+docker run --rm -p 8080:8080 -v "$(pwd)/demo-data:/data:ro" \
+    lance-data-viewer:dev
 ```
 
-## Supported Data Types
+## Upstream and license
 
-### ✅ Fully Supported
+Built on [lance-format/lance-data-viewer](https://github.com/lance-format/lance-data-viewer).
+The media-preview and dependency work comes from upstream; the DataTables
+server-side layer and the pagination compatibility fix are this fork's.
 
-- **Standard types**: string, int, float, timestamp, boolean, null
-- **Modern vectors**: `Vector(dim)` fields (LanceDB 2024+ style)
-- **Fixed-size vectors**: `fixed_size_list<item: float>[N]` (e.g., CLIP-512)
-- **Structured data**: nested objects, metadata fields
-- **Indexed datasets**: properly created with IVF/HNSW indexes
-
-### ⚠️ Limited Support
-
-- **Legacy vectors**: `pa.list_(pa.float32(), dim)` - schema only, may show
-  corruption warnings
-- **Large vectors**: >2048 dimensions show preview only
-- **Corrupted data**: graceful degradation with informative error messages
-
-### ❌ Not Supported
-
-- Binary vectors (uint8 arrays)
-- Multi-vector columns
-- Custom user-defined types
-- Write operations (read-only viewer)
-
-## Vector Visualization Features
-
-The viewer provides advanced visualization for vector embeddings:
-
-- **CLIP Detection**: Automatically identifies 512-dimensional CLIP embeddings
-- **Statistics**: Shows norm, sparsity, positive ratio, normalization status
-- **Sparkline Charts**: Interactive visual representation of vector values
-- **Detailed Tooltips**: Hover for comprehensive vector analysis
-- **Model Badges**: Visual indicators for recognized embedding types
-
-### Security Notes
-
-- Container runs as non-root
-- No authentication; bind to localhost during development and run behind a
-  reverse proxy if exposing
-- Read-only access prevents accidental data modification
+MIT, same as upstream. See [LICENSE](LICENSE).

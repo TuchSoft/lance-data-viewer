@@ -490,6 +490,9 @@ class LanceViewer {
             if (data.type === "vector") {
               // We return a placeholder div that we'll populate after draw
               return `<div class="dt-vector-placeholder" data-row="${meta.row}" data-col="${colName}"></div>`;
+            } else if (data.type === "media") {
+              // Media (image/audio/video) placeholder, filled after draw
+              return `<div class="dt-media-placeholder" data-row="${meta.row}" data-col="${colName}"></div>`;
             } else if (data.error) {
               return `<span class="co-primitive">Error: ${data.error}</span>`;
             } else {
@@ -604,6 +607,15 @@ class LanceViewer {
           });
 
         $(api.table().body())
+          .find(".dt-media-placeholder")
+          .each(function () {
+            const rowIdx = $(this).data("row");
+            const colName = $(this).data("col");
+            const cellData = data[rowIdx][colName];
+            self.renderMediaCell(this, cellData);
+          });
+
+        $(api.table().body())
           .find(".dt-longtext-placeholder")
           .each(function () {
             const rowIdx = $(this).data("row");
@@ -651,6 +663,56 @@ class LanceViewer {
 
   renderTable(rows) {
     // Obsolete: DataTables handles rendering now.
+  }
+
+  renderMediaCell(cell, mediaData) {
+    cell.className = "media-cell";
+    const wrapper = document.createElement("div");
+    wrapper.className = "media-preview";
+
+    if (!mediaData.base64) {
+      const summary = document.createElement("div");
+      summary.className = "media-info media-too-large";
+      summary.textContent = `${mediaData.mime_type} • ${this.formatBytes(mediaData.size)} • too large to preview`;
+      wrapper.appendChild(summary);
+      cell.appendChild(wrapper);
+      return;
+    }
+
+    const source = `data:${mediaData.mime_type};base64,${mediaData.base64}`;
+
+    let mediaElement;
+    if (mediaData.media_type === "image") {
+      mediaElement = document.createElement("img");
+      mediaElement.alt = mediaData.mime_type;
+      mediaElement.loading = "lazy";
+    } else if (mediaData.media_type === "audio") {
+      mediaElement = document.createElement("audio");
+      mediaElement.controls = true;
+      mediaElement.preload = "metadata";
+    } else if (mediaData.media_type === "video") {
+      mediaElement = document.createElement("video");
+      mediaElement.controls = true;
+      mediaElement.preload = "metadata";
+    } else {
+      cell.textContent = `Unsupported media type: ${mediaData.mime_type}`;
+      return;
+    }
+
+    mediaElement.src = source;
+    const info = document.createElement("div");
+    info.className = "media-info";
+    info.textContent = `${mediaData.mime_type} • ${this.formatBytes(mediaData.size)}`;
+
+    wrapper.appendChild(mediaElement);
+    wrapper.appendChild(info);
+    cell.appendChild(wrapper);
+  }
+
+  formatBytes(size) {
+    if (size < 1024) return `${size} B`;
+    if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
   }
 
   renderVectorCell(cell, vectorData, columnName) {
@@ -940,7 +1002,15 @@ class LanceViewer {
       return;
     }
 
-    // 5. Handle Nested Vectors
+    // 5. Handle Nested Media
+    if (obj.type === "media") {
+      const mediaWrap = document.createElement("div");
+      this.renderMediaCell(mediaWrap, obj);
+      parent.appendChild(mediaWrap);
+      return;
+    }
+
+    // 6. Handle Nested Vectors
     if (obj.type === "vector") {
       // Wrap in a div to prevent renderVectorCell from overwriting container classes
       const vecWrap = document.createElement("div");
